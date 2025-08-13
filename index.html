@@ -1,295 +1,114 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kaiju Authentication - Sofubi Verification</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-```
-    body {
-        font-family: 'Arial', sans-serif;
-        background: #2a2a2a;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        color: white;
-    }
-
-    .model-container {
-        width: 100%;
-        max-width: 600px;
-        height: 400px;
-        border-radius: 15px;
-        overflow: hidden;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-        margin-bottom: 30px;
-    }
-
-    .model-container iframe {
-        width: 100%;
-        height: 100%;
-        border: none;
-    }
-
-    .info-overlay {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 20px;
-        border-radius: 10px;
-        border: 2px solid #FFD700;
-        max-width: 300px;
-        backdrop-filter: blur(10px);
-    }
-
-    .info-row {
-        margin-bottom: 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .info-label {
-        font-size: 12px;
-        color: #FFD700;
-        font-weight: bold;
-        text-transform: uppercase;
-        margin-right: 10px;
-    }
-
-    .info-value {
-        font-size: 14px;
-        color: white;
-        font-weight: normal;
-    }
-
-    .series-info {
-        font-size: 16px;
-        color: #FFD700;
-        font-weight: bold;
-        text-align: center;
-        margin-top: 10px;
-        padding: 10px;
-        border: 1px solid #FFD700;
-        border-radius: 5px;
-    }
-
-    .loading {
-        color: #FFD700;
-        font-style: italic;
-    }
-
-    .error {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: #FF6B6B;
-        font-weight: bold;
-        background: rgba(0, 0, 0, 0.9);
-        padding: 30px;
-        border-radius: 10px;
-        border: 2px solid #FF6B6B;
-        text-align: center;
-        max-width: 400px;
-    }
-
-    .instructions {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 15px;
-        border-radius: 8px;
-        font-size: 12px;
-        color: #ccc;
-        max-width: 200px;
-    }
-
-    @media (max-width: 768px) {
-        .info-overlay {
-            position: relative;
-            top: auto;
-            left: auto;
-            width: 100%;
-            max-width: 600px;
-            margin-bottom: 20px;
-        }
-        
-        .model-container {
-            height: 300px;
-        }
-        
-        .instructions {
-            position: relative;
-            bottom: auto;
-            right: auto;
-            width: 100%;
-            max-width: 600px;
-            text-align: center;
-        }
-    }
-</style>
-```
-
+  <meta charset="UTF-8">
+  <title>Kaiju Auth Card</title>
+  <style>
+    body { margin: 0; background: #000; color: white; font-family: sans-serif; }
+    #loading { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 4px; }
+    canvas { display: block; }
+  </style>
 </head>
 <body>
-    <div class="info-overlay" id="infoPanel">
-        <div class="info-row">
-            <span class="info-label">Figura:</span>
-            <span class="info-value" id="figure">Cargando...</span>
-        </div>
+<div id="loading">Cargando tarjeta...</div>
 
-```
-    <div class="info-row">
-        <span class="info-label">Versión:</span>
-        <span class="info-value" id="version">Cargando...</span>
-    </div>
-    
-    <div class="info-row">
-        <span class="info-label">Propietario:</span>
-        <span class="info-value" id="owner">Cargando...</span>
-    </div>
-    
-    <div class="info-row">
-        <span class="info-label">Fecha:</span>
-        <span class="info-value" id="date">Cargando...</span>
-    </div>
-    
-    <div class="series-info" id="series">
-        Cargando serie...
-    </div>
-</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js';
 
-<div class="model-container">
-    <div class="sketchfab-embed-wrapper">
-        <iframe title="Kaiju Authentication Card" 
-                allowfullscreen 
-                mozallowfullscreen="true" 
-                webkitallowfullscreen="true" 
-                allow="autoplay; fullscreen; xr-spatial-tracking" 
-                xr-spatial-tracking 
-                execution-while-out-of-viewport 
-                execution-while-not-rendered 
-                web-share 
-                src="https://sketchfab.com/models/d454500a4e644afd856e838b0299ac50/embed?autostart=0&ui_theme=dark&camera=0&ui_controls=1&ui_infos=0&ui_inspector=0&ui_watermark=0&ui_help=0&ui_settings=0&ui_vr=0&ui_fullscreen=0&ui_annotations=0&autospin=0.2&ui_stop=0&preload=1&transparent=0&background=2a2a2a&ui_hint=0&orbit_constraint_pan=false&orbit_constraint_zoom_in=1.2&orbit_constraint_zoom_out=3&orbit_constraint_rotate_x_min=-30&orbit_constraint_rotate_x_max=30">
-        </iframe>
-    </div>
-</div>
+// === 1. Escena básica ===
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(0, 1, 2);
 
-<div class="instructions">
-    <strong>🖱️ Controles:</strong><br>
-    • Arrastra para rotar<br>
-    • Scroll para zoom<br>
-    • La tarjeta no se puede voltear
-</div>
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-<script>
-    // Función para obtener parámetros de la URL
-    function getUrlParameter(name) {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get(name);
+const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+scene.add(light);
+
+// === 2. Cargar modelo GLB ===
+const loader = new GLTFLoader();
+const modelUrl = 'https://github.com/upandunder/kaiju-auth/raw/e627301318da589c0ed948f829a2fcea91d4d86f/tarjeta_sofubi_v3.glb';
+
+loader.load(modelUrl, (gltf) => {
+    const model = gltf.scene;
+    scene.add(model);
+    document.getElementById('loading').innerText = 'Tarjeta cargada';
+}, undefined, (err) => {
+    console.error(err);
+    document.getElementById('loading').innerText = 'Error al cargar modelo';
+});
+
+// === 3. Función para añadir texto sobre la tarjeta ===
+function addTextToCard(text, yOffset = 0.05) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 512;
+    canvas.height = 128;
+    ctx.fillStyle = 'white';
+    ctx.font = '48px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.25), material);
+    plane.position.set(0, yOffset, 0.01);
+    scene.add(plane);
+}
+
+// === 4. Obtener datos desde Google Sheet ===
+async function loadKaijuData() {
+    const params = new URLSearchParams(window.location.search);
+    const kaijuId = params.get('id');
+    if (!kaijuId) {
+        document.getElementById('loading').innerText = '⚠️ No se especificó un ID';
+        return;
     }
 
-    // Función para cargar datos desde Google Sheets
-    async function loadKaijuData() {
-        const kaijuId = getUrlParameter('id');
-        
-        if (!kaijuId) {
-            showError('⚠️ URL INVÁLIDA<br><br>Esta página requiere un código QR/NFC válido.<br><br>Escanea el chip en la figura para acceder.');
-            return;
+    try {
+        const sheetUrl = 'https://tuusuario.github.io/kaiju-auth?id=KAI001';
+        const res = await fetch(sheetUrl);
+        const text = await res.text();
+        const rows = text.split('\n').map(r => r.split(','));
+
+        const match = rows.find(r => r[0] === kaijuId);
+        if (match) {
+            const comprador = match[1];
+            const fecha = match[2];
+            const serie = match[3];
+
+            addTextToCard(`Comprador: ${comprador}`, 0.1);
+            addTextToCard(`Fecha: ${fecha}`, 0.05);
+            addTextToCard(`Serie: ${serie}`, 0.0);
+
+            document.getElementById('loading').innerText = '✅ Datos cargados';
+        } else {
+            document.getElementById('loading').innerText = `⚠️ ID ${kaijuId} no encontrado`;
         }
-
-        try {
-            // URL de tu Google Sheets en formato CSV
-            const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRmcU3G4FSPHMgYE8uyqcYhOBx5pKTejEs30Q0GNs6q6sTensvYoO4u6ptMc37JeIBva2V0EW4GqFW_/pub?output=csv';
-            
-            const response = await fetch(sheetUrl);
-            const csvText = await response.text();
-            
-            // Parsear CSV
-            const lines = csvText.split('\n');
-            const headers = lines[0].split(',').map(h => h.trim());
-            
-            // Buscar la fila con el ID específico
-            let kaijuData = null;
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(',').map(v => v.trim());
-                if (values[0] === kaijuId) {
-                    kaijuData = {};
-                    headers.forEach((header, index) => {
-                        kaijuData[header] = values[index] || '';
-                    });
-                    break;
-                }
-            }
-
-            if (kaijuData) {
-                displayKaijuData(kaijuData);
-            } else {
-                showError(`❌ FIGURA NO ENCONTRADA<br><br>ID "${kaijuId}" no existe en nuestra base de datos.<br><br>Verifica que el chip NFC sea auténtico.`);
-            }
-
-        } catch (error) {
-            console.error('Error loading data:', error);
-            showError('🔌 ERROR DE CONEXIÓN<br><br>No se puede conectar con la base de datos.<br><br>Verifica tu conexión a internet.');
-        }
+    } catch (err) {
+        console.error(err);
+        document.getElementById('loading').innerText = 'Error al cargar datos';
     }
+}
 
-    // Función para mostrar los datos de la figura
-    function displayKaijuData(data) {
-        document.getElementById('figure').textContent = data.figure || 'N/A';
-        document.getElementById('version').textContent = data.version || 'N/A';
-        document.getElementById('owner').textContent = data.name || 'N/A';
-        document.getElementById('date').textContent = formatDate(data.date_of_purchase) || 'N/A';
-        
-        // Formatear serie como "Número de Total - Nombre Serie"
-        const seriesText = `${data.figure_number || '?'} de ${getTotalFromSeries(data.series_name)} - ${data.series_name || 'N/A'}`;
-        document.getElementById('series').textContent = seriesText;
-    }
+loadKaijuData();
 
-    // Función para extraer total de la serie (si está en formato "250" o "First Edition")
-    function getTotalFromSeries(seriesName) {
-        if (!seriesName) return '?';
-        // Si el nombre contiene números, intentar extraerlos
-        const numbers = seriesName.match(/\d+/);
-        return numbers ? numbers[0] : '∞';
-    }
+// === 5. Animación ===
+function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+}
+animate();
 
-    // Función para formatear fecha
-    function formatDate(dateString) {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('es-ES');
-    }
-
-    // Función para mostrar errores
-    function showError(message) {
-        // Ocultar panel de info
-        document.getElementById('infoPanel').style.display = 'none';
-        
-        // Crear overlay de error
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error';
-        errorDiv.innerHTML = message;
-        document.body.appendChild(errorDiv);
-    }
-
-    // Cargar datos al iniciar la página
-    document.addEventListener('DOMContentLoaded', loadKaijuData);
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
-```
-
 </body>
 </html>
