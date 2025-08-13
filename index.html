@@ -1,69 +1,58 @@
-async loadGLBModel() {
-    try {
-        const loader = new THREE.GLTFLoader();
-        // URL relativa dentro de tu repo de GitHub Pages
-        const modelUrl = './tarjeta.glb';
-
-        const gltf = await new Promise((resolve, reject) => {
-            loader.load(
-                modelUrl,
-                (gltf) => resolve(gltf),
-                (progress) => {
-                    console.log('Loading progress:', Math.round((progress.loaded / progress.total) * 100) + '%');
-                    const loadingDiv = document.getElementById('loading');
-                    if (loadingDiv) {
-                        const progressText = loadingDiv.querySelector('div:last-child');
-                        if (progressText) {
-                            progressText.textContent = `Cargando modelo 3D... ${Math.round(progress.loaded / progress.total * 100)}%`;
-                        }
-                    }
-                },
-                (error) => reject(error)
-            );
+// Función para debuggear la escena
+debugScene() {
+    console.log('=== DEBUG DE ESCENA ===');
+    console.log('Cámara posición:', this.camera.position);
+    console.log('Cámara rotación:', this.camera.rotation);
+    console.log('Objetos en cardGroup:', this.cardGroup.children.length);
+    
+    this.cardGroup.children.forEach((child, index) => {
+        console.log(`Objeto ${index}:`, {
+            type: child.type,
+            position: child.position,
+            scale: child.scale,
+            visible: child.visible,
+            material: child.material?.type
         });
+    });
+}
 
-        this.cardModel = gltf.scene;
+// Función para probar diferentes rutas del archivo
+async testModelPaths() {
+    const possiblePaths = [
+        './tarjeta.glb',
+        '/tarjeta.glb',
+        'tarjeta.glb',
+        './assets/tarjeta.glb',
+        './models/tarjeta.glb'
+    ];
+    
+    for (const path of possiblePaths) {
+        try {
+            const response = await fetch(path, { method: 'HEAD' });
+            console.log(`✅ Archivo encontrado en: ${path} (${response.status})`);
+            return path;
+        } catch (error) {
+            console.log(`❌ No encontrado en: ${path}`);
+        }
+    }
+    
+    console.error('❌ No se encontró el archivo GLB en ninguna ruta');
+    return null;
+}
 
-        // Configurar el modelo
-        this.cardModel.scale.setScalar(1);
-        this.cardModel.position.set(0, 0, 0);
-
-        // Aplicar material dorado a todas las mallas
+// Función para crear wireframe del modelo (para ver la geometría)
+addWireframeVersion() {
+    if (this.cardModel) {
         this.cardModel.traverse((child) => {
             if (child.isMesh) {
-                child.material = this.createGoldMaterial();
-                child.castShadow = true;
-                child.receiveShadow = true;
+                const wireframe = new THREE.WireframeGeometry(child.geometry);
+                const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
+                const wireframeMesh = new THREE.LineSegments(wireframe, wireframeMaterial);
+                wireframeMesh.position.copy(child.position);
+                wireframeMesh.rotation.copy(child.rotation);
+                wireframeMesh.scale.copy(child.scale);
+                this.cardGroup.add(wireframeMesh);
             }
         });
-
-        // Centrar el modelo
-        const box = new THREE.Box3().setFromObject(this.cardModel);
-        const center = box.getCenter(new THREE.Vector3());
-        this.cardModel.position.sub(center);
-
-        // Ajustar cámara según tamaño del modelo
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        this.camera.position.z = maxDim * 2;
-
-        this.cardGroup.add(this.cardModel);
-
-        // Efecto de glow opcional
-        this.addCardGlow();
-
-        console.log('GLB cargado correctamente');
-        return true;
-    } catch (error) {
-        console.error('Error cargando GLB:', error);
-        // Fallback
-        const geometry = new THREE.BoxGeometry(4, 2.5, 0.2);
-        const goldMaterial = this.createGoldMaterial();
-        this.cardModel = new THREE.Mesh(geometry, goldMaterial);
-        this.cardModel.castShadow = true;
-        this.cardModel.receiveShadow = true;
-        this.addCardBorder();
-        this.cardGroup.add(this.cardModel);
-        return true;
     }
 }
