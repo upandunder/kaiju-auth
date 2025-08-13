@@ -1,232 +1,73 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kaiju Authentication - Sofubi Verification</title>
-<style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Arial', sans-serif; background: linear-gradient(135deg, #1a1a1a, #2a2a2a); min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    #canvas-container { width: 100vw; height: 100vh; position: relative; }
-    #loading { position: absolute; top:50%; left:50%; transform: translate(-50%,-50%); color: #FFD700; font-size: 18px; text-align:center; z-index:100; background: rgba(0,0,0,0.9); padding:30px; border-radius:15px; border:2px solid #FFD700; backdrop-filter: blur(10px); }
-    .loading-spinner { border: 3px solid #444; border-top: 3px solid #FFD700; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    #error { position: absolute; top:50%; left:50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); color: #FF6B6B; padding:30px; border-radius:15px; border:2px solid #FF6B6B; text-align:center; max-width:400px; z-index:100; display:none; backdrop-filter: blur(10px); }
-    .instructions { position: fixed; bottom:20px; right:20px; background: rgba(0,0,0,0.8); padding:15px; border-radius:10px; font-size:12px; color:#ccc; max-width:200px; z-index:50; border:1px solid #FFD700; backdrop-filter: blur(5px); }
-    .logo { position: fixed; top:20px; left:20px; color: #FFD700; font-weight:bold; font-size:16px; z-index:50; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); }
-    @media(max-width:768px) { .instructions { bottom:10px; right:10px; left:10px; max-width:none; font-size:10px; padding:10px; } .logo { font-size:14px; } }
-</style>
-</head>
-<body>
-<div class="logo">🦖 KAIJU AUTHENTIC</div>
-<div id="canvas-container"></div>
-<div id="loading">
-    <div class="loading-spinner"></div>
-    <div>Cargando tarjeta de autenticidad...</div>
-    <div style="font-size: 12px; margin-top:10px; color:#ccc;">Verificando datos del comprador</div>
-</div>
-<div id="error"></div>
-<div class="instructions">
-    <strong>🖱️ Controles:</strong><br>
-    • Arrastra para rotar<br>
-    • Rueda para zoom<br>
-    • Doble click para centrar<br>
-    • Mantén presionado para auto-rotar
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script>
-class KaijuAuthCard {
-    constructor() {
-        this.scene = null; this.camera = null; this.renderer = null; this.cardModel = null;
-        this.textGroup = new THREE.Group(); this.glowGroup = new THREE.Group();
-        this.controls = { isRotating:false, previousMousePosition:{x:0,y:0}, rotationY:0, rotationX:0, targetRotationY:0, targetRotationX:0, zoom:1, targetZoom:1 };
-        this.autoRotate = false; this.autoRotateTimer = null;
-
-        this.init();
-        this.loadKaijuData();
-    }
-
-    init() {
-        this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1a1a1a);
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        this.camera.position.set(0,0,6);
-
-        this.renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, powerPreference:"high-performance" });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.getElementById('canvas-container').appendChild(this.renderer.domElement);
-
-        this.setupLighting();
-        this.setupControls();
-
-        this.cardGroup = new THREE.Group();
-        this.scene.add(this.cardGroup);
-        this.cardGroup.add(this.textGroup);
-        this.cardGroup.add(this.glowGroup);
-
-        this.createParticles();
-
-        window.addEventListener('resize',()=>this.onWindowResize());
-        this.animate();
-    }
-
-    setupLighting(){
-        const ambient = new THREE.AmbientLight(0xffeaa7,0.4); this.scene.add(ambient);
-        const main = new THREE.DirectionalLight(0xffffff,1.2); main.position.set(5,5,5); main.castShadow=true; this.scene.add(main);
-        const fill = new THREE.DirectionalLight(0xffd700,0.8); fill.position.set(-3,2,4); this.scene.add(fill);
-        const rim = new THREE.DirectionalLight(0xffffcc,0.6); rim.position.set(0,-2,-5); this.scene.add(rim);
-        const p1 = new THREE.PointLight(0xffd700,0.8,15); p1.position.set(3,3,3); this.scene.add(p1);
-        const p2 = new THREE.PointLight(0xffeb3b,0.6,12); p2.position.set(-2,-1,4); this.scene.add(p2);
-    }
-
-    createParticles(){
-        const particleCount=100; const particles=new THREE.BufferGeometry();
-        const positions=new Float32Array(particleCount*3);
-        for(let i=0;i<particleCount*3;i+=3){
-            positions[i]=(Math.random()-0.5)*20;
-            positions[i+1]=(Math.random()-0.5)*20;
-            positions[i+2]=(Math.random()-0.5)*20;
-        }
-        particles.setAttribute('position', new THREE.BufferAttribute(positions,3));
-        const mat=new THREE.PointsMaterial({ color:0xffd700,size:0.1,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending });
-        this.particleSystem = new THREE.Points(particles,mat);
-        this.scene.add(this.particleSystem);
-    }
-
-    async loadGLBModel(){
+async loadGLBModel() {
+    try {
         const loader = new THREE.GLTFLoader();
-        const modelUrl = 'https://drive.google.com/uc?export=download&id=1eCNJyrkpWTFYNftSIaP72zwNbMUH82wq';
-        try{
-            const gltf = await new Promise((resolve,reject)=>{
-                loader.load(modelUrl, resolve, 
-                    (progress)=>console.log('Loading progress:',(progress.loaded/progress.total*100)+'%'),
-                    (err)=>reject(err)
-                );
-            });
+        const modelUrl = 'https://github.com/upandunder/kaiju-auth/raw/refs/heads/main/tarjeta.glb';
 
-            this.cardModel=gltf.scene;
-            this.cardModel.traverse(c=>{if(c.isMesh){c.material=this.createGoldMaterial();c.castShadow=true;c.receiveShadow=true;}});
-            const box = new THREE.Box3().setFromObject(this.cardModel);
-            const center = box.getCenter(new THREE.Vector3());
-            this.cardModel.position.sub(center);
-            const size = box.getSize(new THREE.Vector3());
-            this.camera.position.z = size.z*3;
-            this.cardGroup.add(this.cardModel);
-            this.addCardGlow();
+        const gltf = await new Promise((resolve, reject) => {
+            loader.load(
+                modelUrl,
+                (gltf) => resolve(gltf),
+                (progress) => {
+                    console.log('Loading progress:', Math.round((progress.loaded / progress.total) * 100) + '%');
+                    const loadingDiv = document.getElementById('loading');
+                    if (loadingDiv) {
+                        const progressText = loadingDiv.querySelector('div:last-child');
+                        if (progressText) {
+                            progressText.textContent = `Cargando modelo 3D... ${Math.round(progress.loaded / progress.total * 100)}%`;
+                        }
+                    }
+                },
+                (error) => reject(error)
+            );
+        });
 
-        }catch(e){
-            console.error('Error cargando GLB',e);
-            const geometry = new THREE.BoxGeometry(4,2.5,0.2);
-            const mesh = new THREE.Mesh(geometry,this.createGoldMaterial());
-            mesh.castShadow=true; mesh.receiveShadow=true;
-            this.cardModel = mesh;
-            this.cardGroup.add(mesh);
-        }
-    }
+        this.cardModel = gltf.scene;
 
-    createGoldMaterial(){
-        return new THREE.MeshPhysicalMaterial({ color:0xFFD700, metalness:0.9, roughness:0.1, reflectivity:1, clearcoat:1, clearcoatRoughness:0.02, side:THREE.DoubleSide });
-    }
+        // Configurar el modelo
+        this.cardModel.scale.setScalar(1);
+        this.cardModel.position.set(0, 0, 0);
 
-    addCardGlow(){
-        if(!this.cardModel) return;
+        // Aplicar material dorado a todas las mallas
+        this.cardModel.traverse((child) => {
+            if (child.isMesh) {
+                child.material = this.createGoldMaterial();
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
+        // Centrar el modelo
         const box = new THREE.Box3().setFromObject(this.cardModel);
+        const center = box.getCenter(new THREE.Vector3());
+        this.cardModel.position.sub(center);
+
+        // Ajustar cámara según tamaño del modelo
         const size = box.getSize(new THREE.Vector3());
-        const glowGeo = new THREE.BoxGeometry(size.x*1.02,size.y*1.02,size.z*1.02);
-        const glowMat = new THREE.MeshBasicMaterial({ color:0xffd700, transparent:true, opacity:0.1, blending:THREE.AdditiveBlending, side:THREE.BackSide });
-        const glow = new THREE.Mesh(glowGeo,glowMat);
-        this.glowGroup.add(glow);
-    }
+        const maxDim = Math.max(size.x, size.y, size.z);
+        this.camera.position.z = maxDim * 2;
 
-    createTextTexture(data){
-        const canvas = document.createElement('canvas'); canvas.width=1024; canvas.height=1024;
-        const ctx=canvas.getContext('2d');
-        ctx.fillStyle='rgba(255,248,220,0.95)'; ctx.fillRect(0,0,1024,1024);
-        ctx.strokeStyle='#B8860B'; ctx.lineWidth=8; ctx.strokeRect(20,20,984,984);
-        ctx.font='bold 44px serif'; ctx.fillStyle='#B8860B'; ctx.textAlign='center';
-        ctx.fillText('🦖 KAIJU AUTÉNTICO',512,120);
-        ctx.font='bold 36px serif'; ctx.fillStyle='#1a1a1a'; ctx.fillText(data.name||'N/A',512,570);
-        ctx.font='26px serif'; ctx.fillStyle='#1a1a1a'; ctx.fillText(`Registrado: ${data.date_of_purchase||'N/A'}`,512,660);
-        return canvas;
-    }
+        this.cardGroup.add(this.cardModel);
 
-    addTextToCard(data){
-        this.textGroup.clear();
-        if(!this.cardModel) return;
-        const box = new THREE.Box3().setFromObject(this.cardModel);
-        const size = box.getSize(new THREE.Vector3());
-        const canvas = this.createTextTexture(data);
-        const tex = new THREE.CanvasTexture(canvas); tex.flipY=false; tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter;
-        const geom = new THREE.PlaneGeometry(size.x*0.95,size.y*0.95);
-        const mat = new THREE.MeshBasicMaterial({ map:tex, transparent:true, opacity:0.95, side:THREE.DoubleSide, depthTest:false });
-        const mesh = new THREE.Mesh(geom,mat);
-        mesh.position.z = size.z*0.6; mesh.renderOrder=1;
-        this.textGroup.add(mesh);
-    }
+        // Efecto de glow opcional
+        this.addCardGlow();
 
-    setupControls(){
-        const canvas=this.renderer.domElement;
-        canvas.addEventListener('mousedown',e=>this.onMouseDown(e));
-        canvas.addEventListener('mousemove',e=>this.onMouseMove(e));
-        canvas.addEventListener('mouseup',()=>this.onMouseUp());
-        canvas.addEventListener('mouseleave',()=>this.onMouseUp());
-        canvas.addEventListener('wheel',e=>this.onWheel(e));
-        canvas.addEventListener('dblclick',()=>this.resetView());
-    }
+        console.log('GLB cargado correctamente');
 
-    onMouseDown(e){this.controls.isRotating=true; this.controls.previousMousePosition={x:e.clientX,y:e.clientY};}
-    onMouseMove(e){if(!this.controls.isRotating) return; const dx=e.clientX-this.controls.previousMousePosition.x; const dy=e.clientY-this.controls.previousMousePosition.y;
-        this.controls.targetRotationY+=dx*0.01; this.controls.targetRotationX+=dy*0.01; this.controls.targetRotationX=Math.max(-0.5,Math.min(0.5,this.controls.targetRotationX));
-        this.controls.previousMousePosition={x:e.clientX,y:e.clientY};}
-    onMouseUp(){this.controls.isRotating=false; this.autoRotate=false;}
-    onWheel(e){e.preventDefault(); const delta=e.deltaY>0?1.1:0.9; this.controls.targetZoom=Math.max(0.5,Math.min(4,this.controls.targetZoom*delta));}
-    resetView(){this.controls.targetRotationX=0; this.controls.targetRotationY=0; this.controls.targetZoom=1; this.autoRotate=false;}
-    animate(){requestAnimationFrame(()=>this.animate());
-        if(this.autoRotate)this.controls.targetRotationY+=0.01;
-        this.controls.rotationY+=(this.controls.targetRotationY-this.controls.rotationY)*0.1;
-        this.controls.rotationX+=(this.controls.targetRotationX-this.controls.rotationX)*0.1;
-        this.controls.zoom+=(this.controls.targetZoom-this.controls.zoom)*0.1;
-        if(this.cardGroup){this.cardGroup.rotation.y=this.controls.rotationY; this.cardGroup.rotation.x=this.controls.rotationX; this.cardGroup.scale.setScalar(this.controls.zoom);}
-        if(this.particleSystem){this.particleSystem.rotation.y+=0.001; this.particleSystem.rotation.x+=0.0005;}
-        this.renderer.render(this.scene,this.camera);
-    }
-    onWindowResize(){this.camera.aspect=window.innerWidth/window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth,window.innerHeight);}
-    
-    getUrlParameter(name){name=name.replace(/[\[\]]/g,"\\$&"); const regex=new RegExp("[?&]"+name+"=([^&#]*)"); const results=regex.exec(window.location.href); return results===null?null:decodeURIComponent(results[1].replace(/\+/g," "));}
+        return true;
 
-    showError(msg){const el=document.getElementById('error'); el.innerHTML=msg; el.style.display='block';}
+    } catch (error) {
+        console.error('Error cargando GLB:', error);
 
-    async loadKaijuData(){
-        const kaijuId=this.getUrlParameter('id');
-        if(!kaijuId){this.showError('⚠️ URL INVÁLIDA<br><br>Escanea el chip para acceder.'); return;}
-        await this.loadGLBModel();
-        const sheetUrl='https://docs.google.com/spreadsheets/d/e/2PACX-1vRmcU3G4FSPHMgYE8uyqcYhOBx5pKTejEs30Q0GNs6q6sTensvYoO4u6ptMc37JeIBva2V0EW4GqFW_/pub?output=csv';
-        try{
-            const res=await fetch(sheetUrl); if(!res.ok) throw new Error(`HTTP ${res.status}`);
-            const csv=await res.text(); const lines=csv.split('\n').filter(l=>l.trim()); if(lines.length<2) throw new Error('Sheet vacía');
-            const headers=lines[0].split(',').map(h=>h.trim().replace(/"/g,''));
-            let kaijuData=null;
-            for(let i=1;i<lines.length;i++){const values=this.parseCSVLine(lines[i]); if(values[0]===kaijuId){kaijuData={}; headers.forEach((h,j)=>{kaijuData[h]=values[j]||'';}); break;}}
-            if(!kaijuData){this.showError('⚠️ ID no encontrado'); return;}
-            this.addTextToCard(kaijuData);
-            document.getElementById('loading').style.display='none';
-        }catch(e){console.error(e); this.showError('⚠️ Error cargando datos');}
-    }
+        // Fallback solo si hay un error real
+        const geometry = new THREE.BoxGeometry(4, 2.5, 0.2);
+        const goldMaterial = this.createGoldMaterial();
+        this.cardModel = new THREE.Mesh(geometry, goldMaterial);
+        this.cardModel.castShadow = true;
+        this.cardModel.receiveShadow = true;
 
-    parseCSVLine(line){
-        const result=[]; let inQuotes=false; let value=''; for(let c of line){
-            if(c==='\"') inQuotes=!inQuotes;
-            else if(c===','&&!inQuotes){result.push(value); value='';} else value+=c;
-        } result.push(value); return result;
+        this.addCardBorder();
+        this.cardGroup.add(this.cardModel);
+
+        return true;
     }
 }
-
-new KaijuAuthCard();
-</script>
-</body>
-</html>
