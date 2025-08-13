@@ -1,95 +1,69 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kaiju Authentication</title>
-    <style>
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #1a1a1a; }
-        #canvas-container { width: 100%; height: 100%; }
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                   color: #FFD700; font-family: Arial; font-size: 18px; }
-    </style>
-</head>
-<body>
-    <div id="canvas-container"></div>
-    <div id="loading">Cargando tarjeta 3D...</div>
+async loadGLBModel() {
+    try {
+        const loader = new THREE.GLTFLoader();
+        // URL relativa dentro de tu repo de GitHub Pages
+        const modelUrl = './tarjeta.glb';
 
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+        const gltf = await new Promise((resolve, reject) => {
+            loader.load(
+                modelUrl,
+                (gltf) => resolve(gltf),
+                (progress) => {
+                    console.log('Loading progress:', Math.round((progress.loaded / progress.total) * 100) + '%');
+                    const loadingDiv = document.getElementById('loading');
+                    if (loadingDiv) {
+                        const progressText = loadingDiv.querySelector('div:last-child');
+                        if (progressText) {
+                            progressText.textContent = `Cargando modelo 3D... ${Math.round(progress.loaded / progress.total * 100)}%`;
+                        }
+                    }
+                },
+                (error) => reject(error)
+            );
+        });
 
-    <script type="module">
-        class KaijuAuthCard {
-            constructor() {
-                this.scene = new THREE.Scene();
-                this.scene.background = new THREE.Color(0x1a1a1a);
+        this.cardModel = gltf.scene;
 
-                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                this.camera.position.set(0, 0, 6);
+        // Configurar el modelo
+        this.cardModel.scale.setScalar(1);
+        this.cardModel.position.set(0, 0, 0);
 
-                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                document.getElementById('canvas-container').appendChild(this.renderer.domElement);
-
-                this.cardGroup = new THREE.Group();
-                this.scene.add(this.cardGroup);
-
-                window.addEventListener('resize', () => this.onWindowResize());
-
-                this.loadGLBModel();
-                this.animate();
+        // Aplicar material dorado a todas las mallas
+        this.cardModel.traverse((child) => {
+            if (child.isMesh) {
+                child.material = this.createGoldMaterial();
+                child.castShadow = true;
+                child.receiveShadow = true;
             }
+        });
 
-            async loadGLBModel() {
-                try {
-                    const loader = new THREE.GLTFLoader();
-                    const modelUrl = 'https://github.com/upandunder/kaiju-auth/raw/refs/heads/main/tarjeta.glb';
-                    
-                    const gltf = await new Promise((resolve, reject) => {
-                        loader.load(
-                            modelUrl,
-                            (gltf) => resolve(gltf),
-                            (xhr) => {
-                                const percent = Math.round((xhr.loaded / xhr.total) * 100);
-                                document.getElementById('loading').innerText = `Cargando tarjeta 3D... ${percent}%`;
-                            },
-                            (error) => reject(error)
-                        );
-                    });
+        // Centrar el modelo
+        const box = new THREE.Box3().setFromObject(this.cardModel);
+        const center = box.getCenter(new THREE.Vector3());
+        this.cardModel.position.sub(center);
 
-                    this.cardModel = gltf.scene;
+        // Ajustar cámara según tamaño del modelo
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        this.camera.position.z = maxDim * 2;
 
-                    // Centrar modelo
-                    const box = new THREE.Box3().setFromObject(this.cardModel);
-                    const center = box.getCenter(new THREE.Vector3());
-                    this.cardModel.position.sub(center);
+        this.cardGroup.add(this.cardModel);
 
-                    this.cardGroup.add(this.cardModel);
+        // Efecto de glow opcional
+        this.addCardGlow();
 
-                    document.getElementById('loading').style.display = 'none';
-                    console.log('GLB cargado correctamente');
-                } catch (error) {
-                    console.error('Error cargando GLB:', error);
-                    document.getElementById('loading').innerText = 'Error cargando tarjeta 3D';
-                }
-            }
-
-            animate() {
-                requestAnimationFrame(() => this.animate());
-                if (this.cardGroup) this.cardGroup.rotation.y += 0.005; // rotación lenta
-                this.renderer.render(this.scene, this.camera);
-            }
-
-            onWindowResize() {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-            }
-        }
-
-        new KaijuAuthCard();
-    </script>
-</body>
-</html>
+        console.log('GLB cargado correctamente');
+        return true;
+    } catch (error) {
+        console.error('Error cargando GLB:', error);
+        // Fallback
+        const geometry = new THREE.BoxGeometry(4, 2.5, 0.2);
+        const goldMaterial = this.createGoldMaterial();
+        this.cardModel = new THREE.Mesh(geometry, goldMaterial);
+        this.cardModel.castShadow = true;
+        this.cardModel.receiveShadow = true;
+        this.addCardBorder();
+        this.cardGroup.add(this.cardModel);
+        return true;
+    }
+}
